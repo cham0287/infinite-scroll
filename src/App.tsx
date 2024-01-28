@@ -1,43 +1,79 @@
-import { useEffect, useState } from 'react';
-import reactLogo from './assets/react.svg';
-import viteLogo from '/vite.svg';
-import './App.css';
+import { useCallback, useEffect, useState } from 'react';
+import { Furniture, PaginationResponse } from './mocks/types';
+import axios from 'axios';
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [furnitures, setFurnitures] = useState<Furniture[]>([]);
+  const [isFetching, setFetching] = useState(false);
+  const [hasNextPage, setNextPage] = useState(true);
+
+  const fetchUsers = useCallback(async () => {
+    const { data } = await axios.get<PaginationResponse<Furniture>>(
+      '/furnitures',
+      {
+        params: { page },
+      }
+    );
+    setFurnitures(furnitures.concat(data.contents));
+    setPage(data.pageNumber + 1);
+    setNextPage(!data.isLastPage);
+    setFetching(false);
+  }, [page]);
 
   useEffect(() => {
-    fetch('/todos')
-      .then((res) => res.json())
-      .then((data) => {
-        console.log(data);
-      });
-  });
+    const handleScroll = () => {
+      const { scrollTop, offsetHeight } = document.documentElement;
+      if (window.innerHeight + scrollTop >= offsetHeight) {
+        setFetching(true);
+      }
+      console.log('normal scroll');
+    };
+    setFetching(true);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (isFetching && hasNextPage) fetchUsers();
+    else if (!hasNextPage) setFetching(false);
+  }, [isFetching]);
 
   return (
-    <>
-      <div>
-        <a href='https://vitejs.dev' target='_blank'>
-          <img src={viteLogo} className='logo' alt='Vite logo' />
-        </a>
-        <a href='https://react.dev' target='_blank'>
-          <img src={reactLogo} className='logo react' alt='React logo' />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className='card'>
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className='read-the-docs'>
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className='w-[100vw] grid grid-cols-3 gap-10 p-10'>
+      {furnitures.map((furniture) => (
+        <FurnitureCard key={furniture.id} furniture={furniture} />
+      ))}
+      {isFetching && <div>Loading...</div>}
+    </div>
   );
 }
 
 export default App;
+
+const FurnitureCard = ({
+  furniture: {
+    image_url,
+    brand_name,
+    name,
+    cost,
+    review_avg,
+    review_count,
+    free_delivery,
+  },
+}: {
+  furniture: Furniture;
+}) => {
+  return (
+    <div>
+      <img src={image_url} alt='' />
+      <div>{brand_name}</div>
+      <div>{name}</div>
+      <div>{cost}</div>
+      <div>
+        {review_avg} 리뷰{review_count}
+      </div>
+      <div>{free_delivery && '무료배송'}</div>
+    </div>
+  );
+};
